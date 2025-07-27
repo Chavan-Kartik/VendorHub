@@ -2,12 +2,12 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Requirement = require('../models/Requirement');
 const Bid = require('../models/Bid');
-const auth = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
 // Create new requirement (vendor only)
-router.post('/', auth, [
+router.post('/', requireAuth, [
   body('title').trim().isLength({ min: 1 }),
   body('description').optional().trim(),
   body('materials').isArray({ min: 1 }),
@@ -91,8 +91,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get requirement by ID with bids
-router.get('/:id', async (req, res) => {
+// Get requirement by ID
+router.get('/:id', requireAuth, async (req, res) => {
   try {
     const requirement = await Requirement.findById(req.params.id)
       .populate('vendor', 'name email phone address')
@@ -102,16 +102,7 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Requirement not found' });
     }
 
-    // Get bids for this requirement
-    const bids = await Bid.find({ requirement: req.params.id })
-      .populate('supplier', 'name email phone isVerified')
-      .sort({ amount: 1 });
-
-    res.json({
-      requirement,
-      bids,
-      totalBids: bids.length
-    });
+    res.json(requirement);
   } catch (error) {
     console.error('Get requirement error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -119,7 +110,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Update requirement (vendor only)
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const userType = req.user.userType;
@@ -158,7 +149,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Award bid to supplier (vendor only)
-router.post('/:id/award', async (req, res) => {
+router.post('/:id/award', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const userType = req.user.userType;
@@ -211,7 +202,7 @@ router.post('/:id/award', async (req, res) => {
 });
 
 // Get vendor's own requirements
-router.get('/vendor/my-requirements', async (req, res) => {
+router.get('/vendor/my-requirements', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const userType = req.user.userType;
@@ -232,7 +223,7 @@ router.get('/vendor/my-requirements', async (req, res) => {
 });
 
 // Get all bids for a specific requirement (vendor only)
-router.get('/:id/bids', auth, async (req, res) => {
+router.get('/:id/bids', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const userType = req.user.userType;
@@ -261,7 +252,7 @@ router.get('/:id/bids', auth, async (req, res) => {
 });
 
 // Vendor adds a review for a supplier
-router.post('/supplier/:supplierId/review', auth, async (req, res) => {
+router.post('/supplier/:supplierId/review', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const userType = req.user.userType;
@@ -286,7 +277,7 @@ router.post('/supplier/:supplierId/review', auth, async (req, res) => {
 });
 
 // Admin verifies a supplier
-router.post('/suppliers/:id/verify', auth, async (req, res) => {
+router.post('/suppliers/:id/verify', requireAuth, async (req, res) => {
   try {
     const userType = req.user.userType;
     if (userType !== 'admin') {
@@ -305,8 +296,8 @@ router.post('/suppliers/:id/verify', auth, async (req, res) => {
   }
 });
 
-// Admin: List all suppliers
-router.get('/users', auth, async (req, res) => {
+// Admin: List all users
+router.get('/users', requireAuth, async (req, res) => {
   try {
     const userType = req.query.userType;
     if (req.user.userType !== 'admin') {
@@ -321,4 +312,4 @@ router.get('/users', auth, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;

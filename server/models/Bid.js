@@ -1,5 +1,27 @@
 const mongoose = require('mongoose');
 
+const reviewSchema = new mongoose.Schema({
+  text: {
+    type: String,
+    required: true
+  },
+  rating: {
+    type: Number,
+    required: true,
+    min: 1,
+    max: 5
+  },
+  reviewer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 const bidSchema = new mongoose.Schema({
   requirement: {
     type: mongoose.Schema.Types.ObjectId,
@@ -24,6 +46,7 @@ const bidSchema = new mongoose.Schema({
     required: true
   },
   photos: [{ type: String }],
+  reviews: [reviewSchema],
   materials: [{
     name: {
       type: String,
@@ -66,6 +89,10 @@ const bidSchema = new mongoose.Schema({
     default: Date.now
   },
   updatedAt: {
+    type: Date,
+    default: Date.now
+  },
+  createdAt: {
     type: Date,
     default: Date.now
   }

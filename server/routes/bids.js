@@ -5,6 +5,7 @@ const Requirement = require('../models/Requirement');
 const User = require('../models/User');
 const multer = require('multer');
 const path = require('path');
+const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Place a bid (supplier only)
-router.post('/', upload.array('photos', 5), [
+router.post('/', requireAuth, upload.array('photos', 5), [
   body('requirement').isMongoId(),
   body('amount').isNumeric({ min: 1 }),
   body('deliveryTime').isNumeric({ min: 1 }),
@@ -111,7 +112,7 @@ router.post('/', upload.array('photos', 5), [
 router.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Get supplier's bids
-router.get('/my-bids', async (req, res) => {
+router.get('/my-bids', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const userType = req.user.userType;
@@ -133,7 +134,7 @@ router.get('/my-bids', async (req, res) => {
 });
 
 // Update bid (supplier only)
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const userType = req.user.userType;
@@ -178,7 +179,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Withdraw bid (supplier only)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const userType = req.user.userType;
@@ -231,6 +232,7 @@ router.get('/requirement/:requirementId', async (req, res) => {
   try {
     const bids = await Bid.find({ requirement: req.params.requirementId })
       .populate('supplier', 'name email phone isVerified')
+      .populate('reviews.reviewer', 'name')
       .sort({ amount: 1 });
 
     res.json(bids);
@@ -240,4 +242,45 @@ router.get('/requirement/:requirementId', async (req, res) => {
   }
 });
 
-module.exports = router; 
+// Add a review to a bid
+router.post('/:id/reviews', requireAuth, [
+    body('text').trim().isLength({ min: 1 }),
+    body('rating').isNumeric({ min: 1, max: 5 })
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        const bid = await Bid.findById(req.params.id);
+        if (!bid) {
+            return res.status(404).json({ message: 'Bid not found' });
+        }
+
+        const requirement = await Requirement.findById(bid.requirement);
+        if (requirement.vendor.toString() !== req.user.userId) {
+            return res.status(403).json({ message: 'Only the requirement creator can review bids' });
+        }
+
+        const { text, rating } = req.body;
+        const review = {
+            text,
+            rating,
+            reviewer: req.user.userId
+        };
+
+        bid.reviews.push(review);
+        await bid.save();
+
+        res.status(201).json({
+            message: 'Review added successfully',
+            bid
+        });
+    } catch (error) {
+        console.error('Add review error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+module.exports = router;
