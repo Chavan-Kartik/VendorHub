@@ -5,6 +5,13 @@ import { Toaster } from 'react-hot-toast';
 import './index.css';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
+import axios from 'axios';
+
+// Set the base URL for axios
+// In production, we use an environment variable.
+// In development, we use the proxy in package.json, so we can set it to the relative path.
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || '/api';
+
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -25,4 +32,4 @@ root.render(
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
-); 
+);
